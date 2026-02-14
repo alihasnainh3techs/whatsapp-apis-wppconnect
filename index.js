@@ -1,21 +1,12 @@
 import dotenv from 'dotenv';
-import { io, server } from './app.js';
-import database from './db/connection.js';
+import connectDB from './db/connection.js';
+import { app } from './app.js';
 
 dotenv.config();
 
-io.on('connection', (socket) => {
-  console.log('a user connected');
-
-  socket.on('join-session', (sessionId) => {
-    socket.join(sessionId);
-    console.log(`Socket ${socket.id} joined room ${sessionId}`);
+connectDB().then(() => {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`App listening on port ${port}`);
   });
-});
-
-database.connectDB();
-
-const port = process.env.PORT || 3000;
-server.listen(port, () => {
-  console.log(`App listening on port ${port}`);
 });

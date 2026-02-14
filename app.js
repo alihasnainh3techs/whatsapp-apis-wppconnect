@@ -1,7 +1,5 @@
-import { createServer } from 'node:http';
 import express from 'express';
 import cors from 'cors';
-import { Server } from 'socket.io';
 import { errorHandler } from './middlewares/error-handler.js';
 import { APIResponse } from './utils/api-response.js';
 import path from 'node:path';
@@ -11,8 +9,6 @@ const __filepath = fileURLToPath(import.meta.url);
 const __dir = path.dirname(__filepath);
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server);
 
 // middlewares
 app.use(cors());
@@ -28,10 +24,6 @@ app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/message', messageRoutes);
 app.use('/api/v1/media', mediaRoutes);
 
-app.use((req, res, next) => {
-  res.status(200).json(new APIResponse(200, ''));
-});
-
 app.use(errorHandler);
 
-export { app, io, server };
+export { app };
