@@ -39,31 +39,3 @@ export const uploadImage = multer({
     cb(null, true);
   },
 });
-
-/**
- * Video upload
- */
-export const uploadVideo = multer({
-  storage: diskStorage('videos'),
-  limits: { fileSize: 16 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('video/')) {
-      return cb(new Error('Only video files allowed'));
-    }
-    cb(null, true);
-  },
-});
-
-/**
- * Audio upload
- */
-export const uploadAudio = multer({
-  storage: diskStorage('audios'),
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('audio/')) {
-      return cb(new Error('Only audio files allowed'));
-    }
-    cb(null, true);
-  },
-});

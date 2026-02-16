@@ -1,15 +1,11 @@
 import { APIResponse } from '../utils/api-response.js';
-import { MessageService } from '../services/message.service.js';
+import messageService from '../services/message.service.js';
 
 class MessageController {
-  constructor() {
-    this.messageService = new MessageService();
-  }
-
   textMessage = async (req, res) => {
     const { id, number, message } = req.body;
 
-    const result = await this.messageService.sendText(id, number, message);
+    const result = await messageService.sendText(id, number, message);
 
     res
       .status(200)
@@ -19,7 +15,7 @@ class MessageController {
   locationMessage = async (req, res) => {
     const { id, number, location, name, address } = req.body;
 
-    const result = await this.messageService.sendLocation(
+    const result = await messageService.sendLocation(
       id,
       number,
       location,
@@ -35,7 +31,7 @@ class MessageController {
   contactMessage = async (req, res) => {
     const { id, to, name, phone } = req.body;
 
-    const result = await this.messageService.sendContact(id, to, name, phone);
+    const result = await messageService.sendContact(id, to, name, phone);
 
     res
       .status(200)
