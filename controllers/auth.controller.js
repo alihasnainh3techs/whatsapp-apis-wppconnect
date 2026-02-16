@@ -4,62 +4,74 @@ import { APIResponse } from '../utils/api-response.js';
 import { APIError } from '../utils/api-error.js';
 
 class AuthController {
-    constructor() {
-        this.whatsappService = new WhatsAppService();
-        this.devicesRepository = new DevicesRepository();
+  constructor() {
+    this.whatsappService = new WhatsAppService();
+    this.devicesRepository = new DevicesRepository();
+  }
+
+  getQrCode = async (req, res) => {
+    const { id } = req.params;
+
+    const isSessionActive = this.whatsappService.sessions.has(id);
+    if (isSessionActive) {
+      return res
+        .status(400)
+        .json(new APIError(400, 'Session is already active.'));
     }
 
-    getQrCode = async (req, res) => {
-        const { id } = req.params;
+    await this.whatsappService.connectDevice(id);
 
-        const isSessionActive = this.whatsappService.sessions.has(id);
-        if (isSessionActive) {
-            return res.status(400).json(new APIError(400, 'Session is already active.'));
-        }
+    res.status(200).json(new APIResponse(201, 'QR code generation started.'));
+  };
 
-        await this.whatsappService.connectDevice(id);
+  getCode = async (req, res) => {
+    const { id } = req.params;
+    const { phone } = req.body;
 
-        res.status(200).json(new APIResponse(201, 'QR code generation started.'));
-    };
+    const isSessionActive = this.whatsappService.sessions.has(id);
+    if (isSessionActive) {
+      return res
+        .status(400)
+        .json(new APIError(400, 'Session is already active.'));
+    }
 
-    getCode = async (req, res) => {
-        const { id } = req.params;
-        const { phone } = req.body;
+    await this.whatsappService.connectDevice(id, phone);
 
-        const isSessionActive = this.whatsappService.sessions.has(id);
-        if (isSessionActive) {
-            return res.status(400).json(new APIError(400, 'Session is already active.'));
-        }
+    res.status(200).json(new APIResponse(201, 'Code generation started.'));
+  };
 
-        await this.whatsappService.connectDevice(id, phone);
+  startAllSessions = async (req, res) => {
+    const devices = await this.devicesRepository.getAllDevices();
+    if (!devices || devices.length === 0) {
+      return res
+        .status(404)
+        .json(new APIError(404, 'No sessions found to start.'));
+    }
 
-        res.status(200).json(new APIResponse(201, 'Code generation started.'));
-    };
-
-    startAllSessions = async (req, res) => {
-        const devices = await this.devicesRepository.getAllDevices();
-        if (!devices || devices.length === 0) {
-            return res
-                .status(404)
-                .json(new APIError(404, 'No sessions found to start.'));
-        }
-
-        await Promise.all(
-            devices.map(async (device) => {
-                const isSessionActive = this.whatsappService.sessions.has(device.sessionId);
-                if (!isSessionActive) {
-                    await this.whatsappService.connectDevice(device.sessionId);
-                }
-            })
+    await Promise.all(
+      devices.map(async (device) => {
+        const isSessionActive = this.whatsappService.sessions.has(
+          device.sessionId,
         );
+        if (!isSessionActive) {
+          await this.whatsappService.connectDevice(device.sessionId);
+        }
+      }),
+    );
 
-        res.status(200).json(new APIResponse(200, 'All sessions started successfully.'));
-    };
+    res
+      .status(200)
+      .json(new APIResponse(200, 'All sessions started successfully.'));
+  };
 
-    showAllSessions = async (req, res) => {
-        const devices = await this.devicesRepository.getAllDevices();
-        res.status(200).json(new APIResponse(200, 'All sessions retrieved successfully.', devices));
-    };
+  showAllSessions = async (req, res) => {
+    const devices = await this.devicesRepository.getAllDevices();
+    res
+      .status(200)
+      .json(
+        new APIResponse(200, 'All sessions retrieved successfully.', devices),
+      );
+  };
 }
 
 export default new AuthController();
