@@ -53,6 +53,25 @@ class MessageController {
       .status(200)
       .json(new APIResponse(200, 'Poll sent successfully.', result));
   };
+
+  listMessage = async (req, res) => {
+    const { id, number, buttonText, description, title, footer, sections } =
+      req.body;
+
+    const result = await messageService.sendList(
+      id,
+      number,
+      buttonText,
+      description,
+      title, // optional
+      footer, // optional
+      sections,
+    );
+
+    res
+      .status(200)
+      .json(new APIResponse(200, 'List sent successfully.', result));
+  };
 }
 
 export default new MessageController();

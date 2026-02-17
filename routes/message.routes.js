@@ -8,5 +8,6 @@ router.post('/text', asyncHandler(messageController.textMessage));
 router.post('/location', asyncHandler(messageController.locationMessage));
 router.post('/contact', asyncHandler(messageController.contactMessage));
 router.post('/poll', asyncHandler(messageController.pollMessage));
+router.post('/list-message', asyncHandler(messageController.listMessage));
 
 export default router;

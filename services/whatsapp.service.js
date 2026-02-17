@@ -1,110 +1,145 @@
 import wppconnect from '@wppconnect-team/wppconnect';
 import devicesRepo from '../repositories/devices.repo.js';
+import axios from 'axios';
 
 class WhatsAppService {
-    constructor() {
-        this.sessions = new Map();
+  constructor() {
+    this.sessions = new Map();
+  }
+
+  getSession(sessionId) {
+    return this.sessions.get(sessionId);
+  }
+
+  async deleteSession(sessionId) {
+    const client = this.sessions.get(sessionId);
+    if (client) await client.close();
+  }
+
+  buildConfig(phone, resolve) {
+    if (phone) {
+      return {
+        phoneNumber: phone,
+        catchLinkCode: (str) => {
+          console.log('Code: ' + str);
+
+          resolve({
+            code: str,
+          });
+        },
+      };
     }
 
-    getSession(sessionId) {
-        return this.sessions.get(sessionId);
-    }
+    return {
+      catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
+        console.log('Number of attempts to read the qrcode: ', attempts);
+        console.log('Terminal qrcode: ', asciiQR);
+        console.log('base64 image string qrcode: ', base64Qrimg);
+        console.log('urlCode (data-ref): ', urlCode);
 
-    async deleteSession(sessionId) {
-        const client = this.sessions.get(sessionId);
-        if (client) await client.close();
-    }
+        resolve({
+          qrCode: base64Qrimg, // Send this base64 string to your frontend
+          attempts,
+        });
+      },
+    };
+  }
 
-    buildConfig(phone, resolve) {
-        if (phone) {
-            return {
-                phoneNumber: phone,
-                catchLinkCode: (str) => {
-                    console.log('Code: ' + str);
+  async connectDevice(sessionId, phone = null) {
+    return new Promise((resolve, reject) => {
+      const config = this.buildConfig(phone, resolve);
 
-                    resolve({
-                        code: str
-                    });
-                },
-            };
-        }
+      wppconnect
+        .create({
+          session: sessionId,
+          ...config,
+          puppeteerOptions: {
+            userDataDir: `./tokens/${sessionId}`,
+          },
+          statusFind: async (statusSession, session) => {
+            console.log('Status Session: ', statusSession); //return isLogged || notLogged || browserClose || qrReadSuccess || qrReadFail || autocloseCalled || desconnectedMobile || deleteToken
+            //Create session wss return "serverClose" case server for close
+            console.log('Session name: ', session);
 
-        return {
-            catchQR: (base64Qrimg, asciiQR, attempts, urlCode) => {
-                console.log('Number of attempts to read the qrcode: ', attempts);
-                console.log('Terminal qrcode: ', asciiQR);
-                console.log('base64 image string qrcode: ', base64Qrimg);
-                console.log('urlCode (data-ref): ', urlCode);
+            let status;
+            let disconnectReason = null;
+            let lastDisconnectedAt = null;
 
-                resolve({
-                    qrCode: base64Qrimg, // Send this base64 string to your frontend
-                    attempts
-                });
-            },
-        };
-    }
+            if (
+              statusSession === 'isLogged' ||
+              statusSession === 'qrReadSuccess'
+            ) {
+              status = 'CONNECTED';
+            } else {
+              status = 'DISCONNECTED';
+              disconnectReason = statusSession;
+              lastDisconnectedAt = new Date();
 
-    async connectDevice(sessionId, phone = null) {
-        return new Promise((resolve, reject) => {
-            const config = this.buildConfig(phone, resolve);
+              if (statusSession === 'disconnectedMobile') {
+                await this.deleteSession(sessionId);
+              }
 
-            wppconnect.create({
-                session: sessionId,
-                ...config,
-                puppeteerOptions: {
-                    userDataDir: `./tokens/${sessionId}`,
-                },
-                statusFind: async (statusSession, session) => {
-                    console.log('Status Session: ', statusSession); //return isLogged || notLogged || browserClose || qrReadSuccess || qrReadFail || autocloseCalled || desconnectedMobile || deleteToken
-                    //Create session wss return "serverClose" case server for close
-                    console.log('Session name: ', session);
+              this.sessions.delete(sessionId);
+            }
 
-                    let status;
-                    let disconnectReason = null;
-                    let lastDisconnectedAt = null;
-
-                    if (
-                        statusSession === 'isLogged' ||
-                        statusSession === 'qrReadSuccess'
-                    ) {
-                        status = 'CONNECTED';
-                    } else {
-                        status = 'DISCONNECTED';
-                        disconnectReason = statusSession;
-                        lastDisconnectedAt = new Date();
-
-                        if (statusSession === 'disconnectedMobile') {
-                            await this.deleteSession(sessionId);
-                        }
-
-                        this.sessions.delete(sessionId);
-                    }
-
-                    await devicesRepo.updateDeviceSession(sessionId, {
-                        status: status,
-                        disconnectReason: disconnectReason,
-                        lastDisconnectedAt: lastDisconnectedAt,
-                    });
-                },
-                logQR: true,
-            }).then((client) => {
-                this.sessions.set(sessionId, client);
-
-                resolve({});
-
-                client.onPollResponse(
-                    ({ chatId, msgId, selectedOptions, sender, timestamp }) => { },
-                );
-            }).catch(async (error) => {
-                console.error('Error generating QR code:', error);
-                await devicesRepo.updateDeviceSession(sessionId, {
-                    status: 'FAILED',
-                    lastDisconnectedAt: new Date(),
-                });
-                reject(error);
+            await devicesRepo.updateDeviceSession(sessionId, {
+              status: status,
+              disconnectReason: disconnectReason,
+              lastDisconnectedAt: lastDisconnectedAt,
             });
+          },
+          logQR: true,
         })
-    }
+        .then(async (client) => {
+          this.sessions.set(sessionId, client);
+
+          client.onAnyMessage((message) => {
+            console.log("Working");
+            console.log("Type of message:", message.type);
+          })
+
+          client.onPollResponse(
+            ({ chatId, msgId, selectedOptions, sender, timestamp }) => {
+              console.log('Chat Id: ', chatId, '\n');
+              console.log('Msg Id: ', msgId, '\n');
+              console.log('Selected options: ', selectedOptions, '\n');
+              console.log('Sender: ', sender, '\n');
+              console.log('Timestamp: ', timestamp, '\n');
+
+              // await axios.post('http://localhost:4000/webhook', {
+              //   event: 'poll.response',
+              //   data: {
+              //     chatId,
+              //     msgId,
+              //     selectedOptions,
+              //     sender,
+              //     timestamp,
+              //   },
+              // });
+
+              console.log('Poll webhook send successfully');
+            },
+          );
+
+          const wid = await client.getWid();
+          const phone = wid.split('@')[0];
+
+          await devicesRepo.updateDeviceSession(sessionId, {
+            phone,
+          });
+
+          resolve({});
+        })
+        .catch(async (error) => {
+          console.error('Error generating QR code:', error);
+          await devicesRepo.updateDeviceSession(sessionId, {
+            status: 'FAILED',
+            lastDisconnectedAt: new Date(),
+          });
+          reject(error);
+        });
+    });
+  }
 }
 
 export default new WhatsAppService();

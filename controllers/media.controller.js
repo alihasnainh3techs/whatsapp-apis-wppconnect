@@ -1,5 +1,5 @@
-import mediaService from "../services/media.service.js";
-import { APIResponse } from "../utils/api-response.js";
+import mediaService from '../services/media.service.js';
+import { APIResponse } from '../utils/api-response.js';
 
 class MediaController {
   imageMessage = async (req, res) => {

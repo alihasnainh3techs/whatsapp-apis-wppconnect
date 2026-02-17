@@ -16,7 +16,9 @@ class AuthController {
 
     const response = await whatsappService.connectDevice(id);
 
-    res.status(200).json(new APIResponse(201, 'QR code generation started.', response));
+    res
+      .status(200)
+      .json(new APIResponse(201, 'QR code generation started.', response));
   };
 
   getCode = async (req, res) => {
@@ -32,7 +34,9 @@ class AuthController {
 
     const response = await whatsappService.connectDevice(id, phone);
 
-    res.status(200).json(new APIResponse(201, 'Code generation started.', response));
+    res
+      .status(200)
+      .json(new APIResponse(201, 'Code generation started.', response));
   };
 
   startAllSessions = async (req, res) => {
@@ -45,9 +49,7 @@ class AuthController {
 
     await Promise.all(
       devices.map(async (device) => {
-        const isSessionActive = whatsappService.sessions.has(
-          device.sessionId,
-        );
+        const isSessionActive = whatsappService.sessions.has(device.sessionId);
         if (!isSessionActive) {
           await whatsappService.connectDevice(device.sessionId);
         }
@@ -66,6 +68,12 @@ class AuthController {
       .json(
         new APIResponse(200, 'All sessions retrieved successfully.', devices),
       );
+  };
+
+  showSession = async (req, res) => {
+    const { id } = req.params;
+    const device = await devicesRepo.getDeviceBySessionId(id);
+    res.status(200).json(new APIResponse(200, 'OK', device));
   };
 }
 

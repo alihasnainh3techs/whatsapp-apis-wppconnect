@@ -10,5 +10,6 @@ router
   .route('/show-all-sessions')
   .get(asyncHandler(authController.showAllSessions));
 router.route('/start-all').get(asyncHandler(authController.startAllSessions));
+router.route('/:id/show-session').get(asyncHandler(authController.showSession));
 
 export default router;

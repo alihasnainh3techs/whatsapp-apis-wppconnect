@@ -1,6 +1,4 @@
-import {
-  uploadImage,
-} from '../middlewares/multer.js';
+import { uploadImage } from '../middlewares/multer.js';
 import { Router } from 'express';
 import { asyncHandler } from '../utils/async-handler.js';
 import mediaController from '../controllers/media.controller.js';
