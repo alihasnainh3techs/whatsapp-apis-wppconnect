@@ -1,6 +1,6 @@
 import wppconnect from '@wppconnect-team/wppconnect';
 import devicesRepo from '../repositories/devices.repo.js';
-import axios from 'axios';
+import webhookService from './webhook.service.js';
 
 class WhatsAppService {
   constructor() {
@@ -61,6 +61,11 @@ class WhatsAppService {
             //Create session wss return "serverClose" case server for close
             console.log('Session name: ', session);
 
+            const client = this.getSession(sessionId);
+
+            const wid = await client?.getWid();
+            const phone = wid?.split('@')[0];
+
             let status;
             let disconnectReason = null;
             let lastDisconnectedAt = null;
@@ -70,10 +75,25 @@ class WhatsAppService {
               statusSession === 'qrReadSuccess'
             ) {
               status = 'CONNECTED';
+
+              await webhookService.emit("device.connected", {
+                sessionId,
+                phone,
+                status
+              })
+
             } else {
               status = 'DISCONNECTED';
               disconnectReason = statusSession;
               lastDisconnectedAt = new Date();
+
+              await webhookService.emit("device.disconnected", {
+                sessionId,
+                phone,
+                status,
+                disconnectReason,
+                lastDisconnectedAt
+              })
 
               if (statusSession === 'disconnectedMobile') {
                 await this.deleteSession(sessionId);
@@ -93,9 +113,25 @@ class WhatsAppService {
         .then(async (client) => {
           this.sessions.set(sessionId, client);
 
-          client.onAnyMessage((message) => {
-            console.log("Working");
-            console.log("Type of message:", message.type);
+          client.onMessage(async (message) => {
+
+            console.log("Something happening");
+
+            if (message.type !== "list_response") return;
+
+            console.log("From: ", message.from);
+            console.log("Id: ", message.id);
+
+            console.log("Formated Name: ", message.sender.formattedName);
+            console.log("Push Name: ", message.sender.pushname);
+            console.log("Name: ", message.sender.name);
+            console.log("Short Name: ", message.sender.shortName);
+
+
+            console.log("Content: ", JSON.stringify(message.content));
+            console.log("List response", JSON.stringify(message.listResponse));
+
+            await client.sendText(phone, `Thanks! You chose: ${selectedRowTitle}`);
           })
 
           client.onPollResponse(
@@ -117,7 +153,7 @@ class WhatsAppService {
               //   },
               // });
 
-              console.log('Poll webhook send successfully');
+              // console.log('Poll webhook send successfully');
             },
           );
 
