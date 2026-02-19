@@ -7,13 +7,12 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "format": "pnpm exec prettier . --write",
+    "format": "npm exec prettier . --write",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.26.2",
   "dependencies": {
     "@wppconnect-team/wppconnect": "^1.38.0",
     "axios": "^1.13.5",
