@@ -8,15 +8,19 @@ class WhatsAppService {
   }
 
   getSession(sessionId) {
-    console.log("Client: ", this.sessions);
-
     return this.sessions.get(sessionId);
   }
 
   async deleteSession(sessionId) {
     const client = this.sessions.get(sessionId);
-    if (client) {
-      try { await client.close(); } catch (e) { }
+    if (!client) return;
+
+    try {
+      await client.close().catch(() => { });
+      this.sessions.delete(sessionId);
+    } catch (err) {
+      console.error('Delete session failed:', err);
+      throw err;
     }
   }
 
@@ -58,6 +62,10 @@ class WhatsAppService {
           session: sessionId,
           whatsappVersion: '2.3000.1032521188-alpha',
           ...config,
+          puppeteerOptions: {
+            userDataDir: `./tokens/${sessionId}`,
+            args: ['--no-sandbox'],
+          },
           statusFind: async (statusSession, session) => {
             console.log('Status Session: ', statusSession); //return isLogged || notLogged || browserClose || qrReadSuccess || qrReadFail || autocloseCalled || desconnectedMobile || deleteToken
             //Create session wss return "serverClose" case server for close
@@ -74,28 +82,28 @@ class WhatsAppService {
 
             if (
               statusSession === 'isLogged' ||
-              statusSession === 'qrReadSuccess'
+              statusSession === 'qrReadSuccess' ||
+              statusSession === 'inChat'
             ) {
               status = 'CONNECTED';
 
-              await webhookService.emit("device.connected", {
+              await webhookService.emit('device.connected', {
                 sessionId,
                 phone,
-                status
-              })
-
+                status,
+              });
             } else {
               status = 'DISCONNECTED';
               disconnectReason = statusSession;
               lastDisconnectedAt = new Date();
 
-              await webhookService.emit("device.disconnected", {
+              await webhookService.emit('device.disconnected', {
                 sessionId,
                 phone,
                 status,
                 disconnectReason,
-                lastDisconnectedAt
-              })
+                lastDisconnectedAt,
+              });
 
               if (statusSession === 'disconnectedMobile') {
                 await this.deleteSession(sessionId);
@@ -116,28 +124,44 @@ class WhatsAppService {
           this.sessions.set(sessionId, client);
 
           client.onMessage(async (message) => {
+            if (message.type !== 'list_response') return;
 
-            console.log("Something happening");
+            const phoneNumber = message.from.split('@')[0];
+            const selectedData = message.listResponse;
 
-            if (message.type !== "list_response") return;
+            const res = await webhookService.emit('list.response', {
+              sessionId,
+              phoneNumber: phoneNumber,
+              content: message.content,
+              selectedData: selectedData,
+              timestamp: message.timestamp,
+            });
 
-            console.log("From: ", message.from);
-            console.log("Id: ", message.id);
+            if (res && res.reply) {
+              await client.sendText(message.from, res.reply);
+            }
+          });
 
-            console.log("Formated Name: ", message.sender.formattedName);
-            console.log("Push Name: ", message.sender.pushname);
-            console.log("Name: ", message.sender.name);
-            console.log("Short Name: ", message.sender.shortName);
+          client.onPollResponse(async (pollResponse) => {
+            const phoneNumber = pollResponse.sender.split('@')[0];
 
+            const validSelections = pollResponse.selectedOptions
+              .filter((option) => option !== null)
+              .map((option) => ({
+                name: option.name,
+                localId: option.localId,
+              }));
 
-            console.log("Content: ", JSON.stringify(message.content));
-            console.log("List response", JSON.stringify(message.listResponse));
+            const res = await webhookService.emit('poll.response', {
+              sessionId,
+              phoneNumber: phoneNumber,
+              selections: validSelections,
+              timestamp: pollResponse.timestamp,
+            });
 
-            await client.sendText(phone, `Thanks! You chose:`);
-          })
-
-          client.onPollResponse(async (message) => {
-            console.log("Poll response: ", message);
+            if (res && res.reply) {
+              await client.sendText(pollResponse.sender, res.reply);
+            }
           });
 
           const wid = await client.getWid();
@@ -146,8 +170,6 @@ class WhatsAppService {
           await devicesRepo.updateDeviceSession(sessionId, {
             phone,
           });
-
-          console.log("Client: ", this.sessions);
 
           resolve({});
         })

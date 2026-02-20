@@ -16,6 +16,10 @@ class DevicesRepository {
   async getAllDevices() {
     return await Device.find({});
   }
+
+  async deleteDeviceBySessionId(sessionId) {
+    return await Device.deleteOne({ sessionId });
+  }
 }
 
 export default new DevicesRepository();

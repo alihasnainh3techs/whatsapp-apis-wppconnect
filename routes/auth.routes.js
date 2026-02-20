@@ -11,5 +11,8 @@ router
   .get(asyncHandler(authController.showAllSessions));
 router.route('/start-all').get(asyncHandler(authController.startAllSessions));
 router.route('/:id/show-session').get(asyncHandler(authController.showSession));
+router
+  .route('/:id/delete-session')
+  .delete(asyncHandler(authController.deleteSession));
 
 export default router;

@@ -20,8 +20,8 @@ Thumbs.db
 tmp/
 *.tmp
 
-# Auth and session data
-auth/
+# Tokens and session data
+tokens/
 
 # Public uploads / temp media (if any)
 public/uploads/

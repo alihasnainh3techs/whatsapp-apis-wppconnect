@@ -73,7 +73,23 @@ class AuthController {
   showSession = async (req, res) => {
     const { id } = req.params;
     const device = await devicesRepo.getDeviceBySessionId(id);
+    if (!device) {
+      return res.status(404).json(new APIError(404, 'Device not found.'));
+    }
+
     res.status(200).json(new APIResponse(200, 'OK', device));
+  };
+
+  deleteSession = async (req, res) => {
+    const { id } = req.params;
+
+    const deletedDevice = await devicesRepo.deleteDeviceBySessionId(id);
+
+    await whatsappService.deleteSession(id);
+
+    res
+      .status(200)
+      .json(new APIResponse(200, 'Deleted Successfully', deletedDevice));
   };
 }
 
