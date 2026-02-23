@@ -11,15 +11,18 @@ class WhatsAppService {
     return this.sessions.get(sessionId);
   }
 
-  async deleteSession(sessionId) {
+  async logoutSession(sessionId) {
     const client = this.sessions.get(sessionId);
-    if (!client) return;
+    if (!client) {
+      console.log(`Session ${sessionId} not found in memory.`);
+      return;
+    }
 
     try {
-      await client.close().catch(() => { });
-      this.sessions.delete(sessionId);
+      await client.logout();
+      console.log(`Successfully logged out session: ${sessionId}`);
     } catch (err) {
-      console.error('Delete session failed:', err);
+      console.error(`Logout failed for session ${sessionId}:`, err);
       throw err;
     }
   }
@@ -80,11 +83,13 @@ class WhatsAppService {
             let disconnectReason = null;
             let lastDisconnectedAt = null;
 
-            if (
-              statusSession === 'isLogged' ||
-              statusSession === 'qrReadSuccess' ||
-              statusSession === 'inChat'
-            ) {
+            const isConnected = [
+              'isLogged',
+              'qrReadSuccess',
+              'inChat'
+            ].includes(statusSession);
+
+            if (isConnected) {
               status = 'CONNECTED';
 
               await webhookService.emit('device.connected', {
@@ -104,10 +109,6 @@ class WhatsAppService {
                 disconnectReason,
                 lastDisconnectedAt,
               });
-
-              if (statusSession === 'disconnectedMobile') {
-                await this.deleteSession(sessionId);
-              }
 
               this.sessions.delete(sessionId);
             }

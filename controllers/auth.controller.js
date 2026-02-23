@@ -85,7 +85,7 @@ class AuthController {
 
     const deletedDevice = await devicesRepo.deleteDeviceBySessionId(id);
 
-    await whatsappService.deleteSession(id);
+    await whatsappService.logoutSession(id);
 
     res
       .status(200)
